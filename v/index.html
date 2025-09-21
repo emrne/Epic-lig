@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Epic Lig - Lig Tablosu</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: Inter, sans-serif; background: linear-gradient(135deg,#0ea5e9,#7c3aed,#ec4899); color:white; }
+  .card { background: rgba(255,255,255,0.12); backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1rem; margin-bottom:1rem; }
+  .team-row { display:flex; justify-content:space-between; align-items:center; padding:0.5rem; border-bottom:1px solid rgba(255,255,255,0.3); border-radius:6px; margin-bottom:0.5rem; background: rgba(0,0,0,0.1); }
+  .team-name { font-weight:bold; }
+  .team-stats input { width:40px; text-align:center; border-radius:4px; border:none; outline:none; background: rgba(255,255,255,0.1); color:white; }
+  .glass-btn { background: rgba(255,255,255,0.06); padding:0.5rem 1rem; border-radius:0.5rem; cursor:pointer; transition:0.2s; }
+  .glass-btn:hover { background: rgba(255,255,255,0.12); }
+  .hidden { display:none; }
+  input, select, textarea { outline:none; color:black; }
+  #preview, #matchPreview, #newsList { background: rgba(0,0,0,0.3); padding:0.5rem; margin-top:0.5rem; border-radius:6px; max-height:150px; overflow-y:auto; }
+  .match-row { display:flex; justify-content:space-between; margin-bottom:0.25rem; }
+</style>
+</head>
+<body class="p-6">
+<h1 class="text-3xl font-bold mb-4">Epic Lig ⚽🏆</h1>
+
+<nav class="flex gap-2 mb-4 flex-wrap">
+  <button class="glass-btn" data-tab="league">🏆 Lig</button>
+  <button class="glass-btn" data-tab="scorers">⚽ Gol Krallığı</button>
+  <button class="glass-btn" data-tab="assists">🅰️ Asistler</button>
+  <button class="glass-btn" data-tab="matches">⚔️ Maçlar</button>
+  <button class="glass-btn" data-tab="news">📰 Haberler</button>
+  <button class="glass-btn" data-tab="manage">🛠 Düzenle</button>
+</nav>
+
+<div id="league" class="tab card"></div>
+<div id="scorers" class="tab card hidden"></div>
+<div id="assists" class="tab card hidden"></div>
+<div id="matches" class="tab card hidden">
+  <h2 class="text-lg font-semibold mb-2">Maç Ekle</h2>
+  <select id="team1"></select> <input type="number" id="score1" placeholder="Skor" class="w-16 p-1 rounded"> - 
+  <input type="number" id="score2" placeholder="Skor" class="w-16 p-1 rounded"> <select id="team2"></select>
+  <button id="addMatch" class="glass-btn ml-2">Ekle</button>
+  <div id="matchPreview" class="mt-2"><strong>Maçlar:</strong></div>
+</div>
+<div id="news" class="tab card hidden">
+  <h2 class="text-lg font-semibold mb-2">Haberler</h2>
+  <div id="newsList"></div>
+</div>
+
+<div id="manage" class="tab card hidden">
+  <input type="password" id="pwd" placeholder="Şifre" class="p-2 rounded w-full mb-2">
+  <button id="pwdBtn" class="glass-btn w-full mb-2">Giriş</button>
+  <div id="adminArea" class="hidden mt-4">
+    <h2 class="text-xl font-semibold mb-2">🔑 Admin Modu Açık</h2>
+
+    <div class="mb-4">
+      <h3>Yeni Futbolcu Ekle</h3>
+      <input id="playerName" placeholder="İsim" class="p-1 rounded w-32">
+      <input id="playerTeam" placeholder="Takım" class="p-1 rounded w-32">
+      <input id="playerGoals" type="number" placeholder="Gol" class="p-1 rounded w-16">
+      <input id="playerAssists" type="number" placeholder="Asist" class="p-1 rounded w-16">
+      <button id="addPlayer" class="glass-btn">➕ Ekle</button>
+    </div>
+
+    <div class="mb-4">
+      <h3>Haber Ekle</h3>
+      <textarea id="newsText" placeholder="Haber yazın..." class="w-full p-2 rounded"></textarea>
+      <button id="addNews" class="glass-btn mt-1">➕ Haber Ekle</button>
+    </div>
+
+    <div id="preview">
+      <strong>Ön İzleme:</strong>
+      <div id="previewList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const tabs = document.querySelectorAll('.tab');
+document.querySelectorAll('button[data-tab]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    tabs.forEach(t=>t.classList.add('hidden'));
+    document.getElementById(btn.dataset.tab).classList.remove('hidden');
+  });
+});
+
+const ADMIN_PASS = 'BhKFŞfmFKfl';
+const pwdBtn = document.getElementById('pwdBtn');
+const pwd = document.getElementById('pwd');
+const adminArea = document.getElementById('adminArea');
+
+let state = {
+  teams:[
+    {name:'Barcelona',played:6,wins:4,draws:1,losses:1,goalsFor:15,goalsAgainst:7},
+    {name:'Juventus',played:6,wins:3,draws:2,losses:1,goalsFor:12,goalsAgainst:5},
+    {name:'Arsenal',played:6,wins:4,draws:1,losses:1,goalsFor:14,goalsAgainst:6},
+    {name:'Everton',played:6,wins:2,draws:3,losses:1,goalsFor:10,goalsAgainst:8},
+    {name:'Liverpool',played:6,wins:3,draws:2,losses:1,goalsFor:13,goalsAgainst:7},
+    {name:'Manchester City',played:6,wins:5,draws:1,losses:0,goalsFor:18,goalsAgainst:4},
+    {name:'Dortmund',played:6,wins:3,draws:1,losses:2,goalsFor:11,goalsAgainst:9},
+    {name:'Real Madrid',played:6,wins:4,draws:0,losses:2,goalsFor:16,goalsAgainst:8}
+  ],
+  players:[],
+  matches:[],
+  news:[]
+};
+
+function renderLeague(){
+  const div = document.getElementById('league');
+  div.innerHTML = '';
+  state.teams.forEach((team,index)=>{
+    const avg = team.goalsFor - team.goalsAgainst;
+    const points = team.wins*3 + team.draws;
+    div.innerHTML += `<div class="team-row">
+      <div class="team-name">${team.name}</div>
+      <div class="team-stats">
+        O:<input type="number" value="${team.played}" data-index="${index}" data-key="played">
+        G:<input type="number" value="${team.wins}" data-index="${index}" data-key="wins">
+        B:<input type="number" value="${team.draws}" data-index="${index}" data-key="draws">
+        M:<input type="number" value="${team.losses}" data-index="${index}" data-key="losses">
+        AG:<input type="number" value="${team.goalsFor}" data-index="${index}" data-key="goalsFor">
+        YG:<input type="number" value="${team.goalsAgainst}" data-index="${index}" data-key="goalsAgainst">
+        AV:${avg} | P:${points}
+      </div>
+    </div>`;
+  });
+  document.querySelectorAll('.team-stats input').forEach(input=>{
+    input.addEventListener('input',e=>{
+      const idx = e.target.dataset.index;
+      const key = e.target.dataset.key;
+      state.teams[idx][key] = parseInt(e.target.value)||0;
+      renderLeague();
+    });
+  });
+}
+
+function renderScorers(){
+  const div = document.getElementById('scorers');
+  div.innerHTML='';
+  state.players.sort((a,b)=>b.goals-a.goals).forEach(p=>{
+    div.innerHTML += `<div class="mb-1">${p.name} (${p.team}) - ⚽ ${p.goals}</div>`;
+  });
+}
+
+function renderAssists(){
+  const div = document.getElementById('assists');
+  div.innerHTML='';
+  state.players.sort((a,b)=>b.assists-a.assists).forEach(p=>{
+    div.innerHTML += `<div class="mb-1">${p.name} (${p.team}) - 🅰️ ${p.assists}</div>`;
+  });
+}
+
+function updatePreview(){
+  const previewList = document.getElementById('previewList');
+  previewList.innerHTML='';
+  state.players.forEach(p=>{
+    previewList.innerHTML += `<div>${p.name} (${p.team}) - ⚽${p.goals} 🅰️${p.assists}</div>`;
+  });
+}
+
+function renderMatches(){
+  const t1 = document.getElementById('team1');
+  const t2 = document.getElementById('team2');
+  [t1,t2].forEach(sel=>{
+    sel.innerHTML = '';
+    state.teams.forEach(team=>{
+      sel.innerHTML += `<option value="${team.name}">${team.name}</option>`;
+    });
+  });
+  const preview = document.getElementById('matchPreview');
+  preview.innerHTML = '<strong>Maçlar:</strong>';
+  state.matches.forEach(m=>{
+    preview.innerHTML += `<div class="match-row">${m.team1} ${m.score1} - ${m.score2} ${m.team2}</div>`;
+  });
+}
+
+function renderNews(){
+  const div = document.getElementById('newsList');
+  div.innerHTML='';
+  state.news.forEach(n=>{
+    div.innerHTML += `<div class="mb-1">📰 ${n}</div>`;
+  });
+}
+
+pwdBtn.addEventListener('click', ()=>{
+  if(pwd.value===ADMIN_PASS){
+    adminArea.classList.remove('hidden');
+    pwd.value='';
+    alert('Admin girişi başarılı');
+    updatePreview();
+  } else alert('Şifre yanlış');
+});
+
+document.getElementById('addPlayer').addEventListener('click', ()=>{
+  const name = document.getElementById('playerName').value;
+  const team = document.getElementById('playerTeam').value;
+  const goals = parseInt(document.getElementById('playerGoals').value)||0;
+  const assists = parseInt(document.getElementById('playerAssists').value)||0;
+  if(name && team){
+    state.players.push({name,team,goals,assists});
+    renderScorers(); 
+    renderAssists();
+    updatePreview();
+    document.getElementById('playerName').value='';
+    document.getElementById('playerTeam').value='';
+    document.getElementById('playerGoals').value='';
+    document.getElementById('playerAssists').value='';
+  }
+});
+
+document.getElementById('addNews').addEventListener('click', ()=>{
+  const newsText = document.getElementById('newsText').value;
+  if(newsText){
+    state.news.push(newsText);
+    renderNews();
+    document.getElementById('newsText').value='';
+  }
+});
+
+document.getElementById('addMatch').addEventListener('click', ()=>{
+  const team1 = document.getElementById('team1').value;
+  const team2 = document.getElementById('team2').value;
+  let score1 = parseInt(document.getElementById('score1').value)||0;
+  let score2 = parseInt(document.getElementById('score2').value)||0;
+  if(team1 && team2 && team1!==team2){
+    state.matches.push({team1,team2,score1,score2});
+
+    // takımların puanlarını ve averajını güncelle
+    const t1 = state.teams.find(t=>t.name===team1);
+    const t2 = state.teams.find(t=>t.name===team2);
+
+    t1.played++; t2.played++;
+    t1.goalsFor += score1; t1.goalsAgainst += score2;
+    t2.goalsFor += score2; t2.goalsAgainst += score1;
+
+    if(score1>score2){ t1.wins++; t2.losses++; }
+    else if(score1<score2){ t2.wins++; t1.losses++; }
+    else { t1.draws++; t2.draws++; }
+
+    renderLeague();
+    renderMatches();
+    document.getElementById('score1').value='';
+    document.getElementById('score2').value='';
+  }
+});
+
+renderLeague();
+renderScorers();
+renderAssists();
+renderMatches();
+renderNews();
+</script>
+</body>
+</html>
